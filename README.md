@@ -11,19 +11,19 @@ Knowing this is very helpful for contract using upgradeable pattern like Transpa
 ## Installation
 
 ```bash
-npm install storagelayout
+npm install storagelens
 ```
 
 Import the plugin in your `hardhat.config.js`:
 
 ```js
-require("storagelayout");
+require("storagelens");
 ```
 
 Or if you are using TypeScript, in your `hardhat.config.ts`:
 
 ```ts
-import "storagelayout";
+import "storagelens";
 ```
 
 ## Tasks
