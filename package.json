@@ -1,6 +1,6 @@
 {
   "name": "storagelens",
-  "version": "0.0.1f",
+  "version": "0.0.2",
   "description": "A hardhat plugin to print layout of contract storage",
   "repository": "https://github.com/yangzhao28/storagelens",
   "author": "yangzhao28@gmail.com",

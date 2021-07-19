@@ -22,10 +22,10 @@ task("printStorage", "Print storage for contract")
     { contractName, noCompile }: { contractName: string; noCompile: boolean },
     { run, layoutLens }
   ) {
-    const fullName = await layoutLens.getFullName(contractName);
     if (!noCompile) {
       await run(TASK_COMPILE, { quiet: true });
     }
+    const fullName = await layoutLens.getFullName(contractName);
     const layout = await layoutLens.getStorageLayout(fullName);
     console.log(`layout of ${chalk.greenBright(fullName)}:`);
     printLayout(layout, 0);
