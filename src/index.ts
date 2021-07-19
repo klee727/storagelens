@@ -1,7 +1,5 @@
-import { task, extendConfig, extendEnvironment } from "hardhat/config";
+import { task, extendEnvironment } from "hardhat/config";
 import { lazyObject } from "hardhat/plugins";
-import { HardhatConfig, HardhatUserConfig } from "hardhat/types";
-import path from "path";
 
 import { LayoutLens } from "./LayoutLens";
 // This import is needed to let the TypeScript compiler know that it should include your type
@@ -14,12 +12,14 @@ extendEnvironment((hre) => {
   // We add a field to the Hardhat Runtime Environment here.
   // We use lazyObject to avoid initializing things until they are actually
   // needed.
-  hre.layoutLens = lazyObject(() => new LayoutLens());
+  hre.layoutLens = lazyObject(() => new LayoutLens(hre));
 });
 
 task("printStorage", "Print storage for contract")
   .addPositionalParam("contractName", "The name of contract to print")
   .setAction(async function (args, hre) {
+    const targetName = args.contractName;
+    const fullName = await hre.layoutLens.getFullName(targetName);
     await hre.run(TASK_COMPILE, { quiet: true });
-    hre.layoutLens.getStorageLayout(args.contractName);
+    hre.layoutLens.getStorageLayout(fullName);
   });

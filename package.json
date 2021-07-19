@@ -2,7 +2,7 @@
   "name": "storagelens",
   "version": "0.0.1",
   "description": "A hardhat plugin to print layout of contract storage",
-  "repository": "github:yangzhao28/storagelens",
+  "repository": "https://github.com/yangzhao28/storagelens",
   "author": "yangzhao28@gmail.com",
   "license": "MIT",
   "main": "dist/src/index.js",

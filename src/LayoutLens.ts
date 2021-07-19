@@ -1,5 +1,4 @@
-import { artifacts } from "hardhat";
-import { CompilerOutput } from "hardhat/types";
+import { HardhatRuntimeEnvironment, CompilerOutput } from "hardhat/types";
 import { HardhatPluginError } from "hardhat/plugins";
 
 interface ObjectWithID {
@@ -28,7 +27,27 @@ export interface TypeReference {
 }
 
 export class LayoutLens {
-  // public printLayout() {
+  public hre: HardhatRuntimeEnvironment;
+
+  constructor(hre: HardhatRuntimeEnvironment) {
+    this.hre = hre;
+  }
+
+  public async getFullName(shotName: string): Promise<string> {
+    if (shotName.indexOf(":") >= 0) {
+      return shotName;
+    }
+    const fullNames = this.hre.artifacts.getAllFullyQualifiedNames();
+    const found = (await fullNames).filter((v) => v.split(":")[1] == shotName);
+    if (found.length > 1) {
+      this._throw(
+        `more than one path found for ${shotName}, please use full path like "contracts/target.sol:ContractName`
+      );
+    }
+    return found[0];
+  }
+
+  // public saveLayout() {
   // const branch = getCurrentBranch();
   // const commitHash = getCurrentCommitShort();
   // printInfo(`Working on ${branch} with commit ${commitHash}`);
@@ -52,7 +71,7 @@ export class LayoutLens {
 
   public async getStorageLayout(fullyQualifiedName: string) {
     const [path, name] = fullyQualifiedName.split(":");
-    const buildInfo = await artifacts.getBuildInfo(fullyQualifiedName);
+    const buildInfo = await this.hre.artifacts.getBuildInfo(fullyQualifiedName);
     if (!buildInfo) {
       this._throw(`Cannot get buildInfo from ${fullyQualifiedName}`);
     }
