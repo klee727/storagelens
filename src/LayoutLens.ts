@@ -96,6 +96,9 @@ export class LayoutLens {
   }
 
   protected _search(root: ObjectWithID, handler: SearchHandler) {
+    if (root == null) {
+      return;
+    }
     if (typeof root === "object" && handler.test(root)) {
       handler.callback(root);
     }

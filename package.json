@@ -1,12 +1,12 @@
 {
   "name": "storagelens",
-  "version": "0.0.1",
+  "version": "0.0.1e",
   "description": "A hardhat plugin to print layout of contract storage",
   "repository": "https://github.com/yangzhao28/storagelens",
   "author": "yangzhao28@gmail.com",
   "license": "MIT",
-  "main": "dist/src/index.js",
-  "types": "dist/src/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "keywords": [
     "ethereum",
     "smart-contracts",
@@ -21,7 +21,7 @@
     "watch": "tsc -w"
   },
   "files": [
-    "dist/src/",
+    "dist/",
     "src/",
     "LICENSE",
     "README.md"
@@ -43,5 +43,8 @@
   },
   "peerDependencies": {
     "hardhat": "^2.0.0"
+  },
+  "dependencies": {
+    "chalk": "^4.1.1"
   }
 }

@@ -1,6 +1,6 @@
+const chalk = require("chalk");
 import { task, extendEnvironment } from "hardhat/config";
 import { lazyObject } from "hardhat/plugins";
-
 import { LayoutLens } from "./LayoutLens";
 // This import is needed to let the TypeScript compiler know that it should include your type
 // extensions in your npm package's types file.
@@ -16,10 +16,32 @@ extendEnvironment((hre) => {
 });
 
 task("printStorage", "Print storage for contract")
+  .addFlag("noCompile", "Don't compile before running this task")
   .addPositionalParam("contractName", "The name of contract to print")
-  .setAction(async function (args, hre) {
-    const targetName = args.contractName;
-    const fullName = await hre.layoutLens.getFullName(targetName);
-    await hre.run(TASK_COMPILE, { quiet: true });
-    hre.layoutLens.getStorageLayout(fullName);
+  .setAction(async function (
+    { contractName, noCompile }: { contractName: string; noCompile: boolean },
+    { run, layoutLens }
+  ) {
+    const fullName = await layoutLens.getFullName(contractName);
+    if (!noCompile) {
+      await run(TASK_COMPILE, { quiet: true });
+    }
+    const layout = await layoutLens.getStorageLayout(fullName);
+    console.log(`layout of ${chalk.greenBright(fullName)}:`);
+    printLayout(layout, 0);
   });
+
+function printLayout(layout: any, indent: number) {
+  for (var i = 0; i < layout.length; i++) {
+    const node = layout[i];
+    const padding = " ".repeat(indent) + (indent == 0 ? "" : "- ");
+    console.log(
+      `${padding}${chalk.yellow(node.name)} [${node.id}][${chalk.magentaBright(
+        node.typeName
+      )}]`
+    );
+    if ("subType" in node) {
+      printLayout(node.subType, indent + 2);
+    }
+  }
+}
