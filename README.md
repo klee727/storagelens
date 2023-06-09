@@ -45,10 +45,11 @@ This command will generate results like below (depends on ERC20 you used):
 
 ```
 layout of @openzeppelin/contracts/token/ERC20/ERC20.sol:ERC20:
-_balances [4771][mapping(address => uint256)]
-_allowances [4777][mapping(address => mapping(address => uint256))]
-_totalSupply [4779][uint256]
-_name [4781][string]
-_symbol [4783][string]
-_decimals [4785][uint8]
+_balances [0,0][mapping(address => uint256)]
+_allowances [1,0][mapping(address => mapping(address => uint256))]
+_totalSupply [2,0][uint256]
+_name [3,0][string]
+_symbol [4,0][string]
 ```
+
+In which "[3,0]" means slot 3 offset 0.

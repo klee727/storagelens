@@ -1,7 +1,7 @@
 const chalk = require("chalk");
 import { task, extendEnvironment } from "hardhat/config";
 import { lazyObject } from "hardhat/plugins";
-import { LayoutLens } from "./LayoutLens";
+import { LayoutLens, TypeReference } from "./LayoutLens";
 // This import is needed to let the TypeScript compiler know that it should include your type
 // extensions in your npm package's types file.
 import "./type-extensions";
@@ -39,16 +39,13 @@ task("printStorage", "Print storage for contract")
     printLayout(layout, 0);
   });
 
-function printLayout(layout: any, indent: number) {
+function printLayout(l: any, indent: number) {
+  const layout = l as TypeReference[]
   for (var i = 0; i < layout.length; i++) {
     const node = layout[i];
     const padding = " ".repeat(indent) + (indent == 0 ? "" : "- ");
-    console.log(
-      `${padding}${chalk.yellow(node.name)} [${node.id}][${chalk.magentaBright(
-        node.typeName
-      )}]`
-    );
-    if ("subType" in node) {
+    console.log(`${padding}${chalk.yellow(node.name)} [${node.slot},${node.offset}][${chalk.magentaBright(node.type)}]`);
+    if (node.subType.length > 0) {
       printLayout(node.subType, indent + 2);
     }
   }
