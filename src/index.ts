@@ -15,6 +15,14 @@ extendEnvironment((hre) => {
   hre.layoutLens = lazyObject(() => new LayoutLens(hre));
 });
 
+task(TASK_COMPILE).setAction(async function (args, hre, runSuper) {
+  for (const compiler of hre.config.solidity.compilers) {
+    compiler.settings.outputSelection["*"]["*"].push("storageLayout");
+  }
+  console.log('storagelen hooks compile task');
+  await runSuper(args);
+});
+
 task("printStorage", "Print storage for contract")
   .addFlag("noCompile", "Don't compile before running this task")
   .addPositionalParam("contractName", "The name of contract to print")

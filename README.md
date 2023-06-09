@@ -26,6 +26,13 @@ Or if you are using TypeScript, in your `hardhat.config.ts`:
 import "storagelens";
 ```
 
+You need to re-compile your contracts to generate storage layout information.
+
+```bash
+npx hardhat clean
+npx hardhat compile
+```
+
 ## Tasks
 
 This plugin creates task called 'printStorage'
