@@ -1,29 +1,13 @@
-import { HardhatRuntimeEnvironment, CompilerOutput } from "hardhat/types";
+import { HardhatRuntimeEnvironment, CompilerOutput, CompilerOutputContract, BuildInfo } from "hardhat/types";
 import { HardhatPluginError } from "hardhat/plugins";
 
-interface ObjectWithID {
-  [index: string]: ObjectWithID | any;
-  id?: string;
-}
-
-interface IndexedObjects {
-  [index: string]: any;
-}
-
-export interface SearchHandler {
-  test: (x: ObjectWithID | any) => boolean;
-  callback: (x: ObjectWithID) => void;
-}
-
 export interface TypeReference {
-  id: string;
   name: string;
   type: string;
-  typeName: string;
-  visibility: string;
-  length?: string | number;
-  keyType?: string;
-  subType?: Array<TypeReference>;
+  slot: string;
+  offset: number;
+  numberOfBytes: string;
+  subType: TypeReference[];
 }
 
 export class LayoutLens {
@@ -37,10 +21,10 @@ export class LayoutLens {
     if (shotName.indexOf(":") >= 0) {
       return shotName;
     }
-    const fullNames = this.hre.artifacts.getAllFullyQualifiedNames();
-    const found = (await fullNames).filter((v) => v.split(":")[1] == shotName);
+    const fullNames = await this.hre.artifacts.getAllFullyQualifiedNames();
+    const found = fullNames.filter((v) => v.split(":")[1] == shotName);
     if (found.length > 1) {
-      this._throw(
+      throw new HardhatPluginError(LayoutLens.name,
         `more than one path found for ${shotName}, please use full path like "contracts/target.sol:ContractName`
       );
     }
@@ -70,143 +54,77 @@ export class LayoutLens {
   // }
 
   public async getStorageLayout(fullyQualifiedName: string) {
-    const [path, name] = fullyQualifiedName.split(":");
     const buildInfo = await this.hre.artifacts.getBuildInfo(fullyQualifiedName);
     if (!buildInfo) {
-      this._throw(`Cannot get buildInfo from ${fullyQualifiedName}`);
+      throw new HardhatPluginError(LayoutLens.name, `Cannot get buildInfo from ${fullyQualifiedName}`);
     }
-    const indexedObjects = buildInfo
-      ? this.flattenObjects(buildInfo.output)
-      : {};
-    return this._parseLayout(indexedObjects, name);
+    const compiledContracts = this._flatten(buildInfo);
+    return this._parseLayout(compiledContracts, fullyQualifiedName);
   }
 
-  public flattenObjects(solcOutput: CompilerOutput): { [index: string]: any } {
-    const result: { [index: string]: any } = {};
-    const handler = {
-      test: (x: ObjectWithID | null) => {
-        return x != null && "id" in x;
-      },
-      callback: (x: ObjectWithID) => {
-        result[x.id as string] = x;
-      },
-    };
-    this._search(solcOutput.sources, handler);
-    return result;
-  }
-
-  protected _search(root: ObjectWithID, handler: SearchHandler) {
-    if (root == null) {
-      return;
-    }
-    if (typeof root === "object" && handler.test(root)) {
-      handler.callback(root);
-    }
-    Object.keys(root).forEach((key: string) => {
-      const child = root[key];
-      if (Array.isArray(child)) {
-        for (var i = 0; i < child.length; i++) {
-          this._search(child[i], handler);
-        }
-      } else if (typeof child === "object") {
-        this._search(child, handler);
+  _flatten(buildInfo: BuildInfo): { [key: string]: CompilerOutputContract } {
+    const compiledContracts: { [key: string]: CompilerOutputContract } = {};
+    const contracts = buildInfo.output.contracts;
+    for (const sourceName in contracts) {
+      for (const contractName in contracts[sourceName]) {
+        const key = `${sourceName}:${contractName}`;
+        compiledContracts[key] = contracts[sourceName][contractName];
       }
-    });
+    }
+    return compiledContracts;
   }
 
-  protected _parseLayout(all: IndexedObjects, contractName: string) {
-    const ast = this._find(
-      all,
-      (x: any) => x.nodeType == "ContractDefinition" && x.name == contractName
-    );
-    const inheritIDs = ast.linearizedBaseContracts;
-    const output: Array<TypeReference> = [];
-    for (var i = inheritIDs.length - 1; i >= 0; i--) {
-      const root = all[inheritIDs[i]].nodes;
-      this._parseCompositeType(all, output, root);
+  _parseLayout(compiledContracts: { [key: string]: CompilerOutputContract }, fullyQualifiedName: string): TypeReference[] {
+    const compiledContract = compiledContracts[fullyQualifiedName] as any // no declaration for storageLayout
+    if (!compiledContract) {
+      throw new HardhatPluginError(LayoutLens.name, `Cannot get compiledContract from ${fullyQualifiedName}`);
+    }
+    const { storage, types } = compiledContract.storageLayout;
+    if (!storage) {
+      throw new HardhatPluginError(LayoutLens.name, `Cannot get storage from ${fullyQualifiedName}`);
+    }
+    if (!types) {
+      throw new HardhatPluginError(LayoutLens.name, `Cannot get types from ${fullyQualifiedName}`);
+    }
+    return this._parseSubType(types, storage);
+  }
+
+  protected _parseSubType(types: any, subType: any[]): TypeReference[] {
+    let output: TypeReference[] = [];
+    for (const i of subType) {
+      const compiledType = types[i.type];
+      let parsedSubType: TypeReference[] = [];
+      const subType = this._getSubType(types, compiledType);
+      if (subType) {
+        parsedSubType = this._parseSubType(types, subType);
+      }
+      output.push({
+        name: i.label,
+        type: compiledType.label,
+        slot: i.slot,
+        offset: i.offset,
+        numberOfBytes: types[i.type].numberOfBytes,
+        subType: parsedSubType,
+      });
     }
     return output;
   }
 
-  protected _parseCompositeType(
-    all: IndexedObjects,
-    output: Array<TypeReference>,
-    current: IndexedObjects
-  ) {
-    if (typeof current === "undefined") {
-      return;
+  protected _getSubType(types: any, compiledType: any): any[] {
+    // the "storage" is an array
+    if (compiledType.length) {
+      return compiledType;
     }
-    for (var j = 0; j < current.length; j++) {
-      var node = current[j];
-      if (node.nodeType != "VariableDeclaration") {
-        continue;
-      }
-      const typeRef = this._parseDeclaration(all, node);
-      if (typeof typeRef != "undefined") {
-        output.push(typeRef);
-      }
+    // "struct" has .member
+    if (compiledType.members) {
+      return compiledType.members;
     }
-  }
-
-  protected _parseDeclaration(
-    all: IndexedObjects,
-    current: IndexedObjects
-  ): TypeReference | undefined {
-    if (current.constant == true) {
-      return undefined;
+    // "mapping" has .value
+    const valueType = types[compiledType.value];
+    if (valueType && valueType.members) {
+      return valueType.members;
     }
-    const typeRef: TypeReference = {
-      id: current.id,
-      name: current.name,
-      type: current.typeDescriptions.typeIdentifier,
-      typeName: current.typeDescriptions.typeString,
-      visibility: current.visibility,
-    };
-    var subRef = null;
-    switch (current.typeName.nodeType) {
-      // struct
-      case "UserDefinedTypeName": {
-        subRef = all[current.typeName.referencedDeclaration];
-        break;
-      }
-      // array
-      case "ArrayTypeName": {
-        if (typeof current.typeName.length != "undefined") {
-          typeRef["length"] = current.typeName.length.value;
-        }
-        if (current.typeName.baseType.nodeType == "UserDefinedTypeName") {
-          subRef = all[current.typeName.baseType.referencedDeclaration];
-        }
-        break;
-      }
-      // map
-      case "Mapping": {
-        typeRef["keyType"] =
-          current.typeName.keyType.typeDescriptions.typeIdentifier;
-        if (current.typeName.valueType.nodeType == "UserDefinedTypeName") {
-          subRef = all[current.typeName.valueType.referencedDeclaration];
-        }
-        break;
-      }
-    }
-    if (subRef != null && subRef.nodeType != "ContractDefinition") {
-      typeRef["subType"] = [];
-      this._parseCompositeType(all, typeRef["subType"], subRef.members);
-    }
-
-    return typeRef;
-  }
-
-  protected _find(objects: IndexedObjects, condition: (x: any) => boolean) {
-    for (var key in objects) {
-      if (condition(objects[key])) {
-        return objects[key];
-      }
-    }
-    return undefined;
-  }
-
-  protected _throw(message: string) {
-    throw new HardhatPluginError(LayoutLens.name, message);
+    // unrecognized
+    return []
   }
 }
